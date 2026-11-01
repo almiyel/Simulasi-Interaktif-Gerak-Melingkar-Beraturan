@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulasi Interaktif Gerak Melingkar Beraturan (GMB)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        physicsBg: '#0b0f19',
+                        physicsCard: '#151c2e',
+                        physicsBorder: '#222f47',
+                        accentBlue: '#38bdf8',
+                        accentGreen: '#4ade80',
+                        accentRed: '#f87171',
+                        accentYellow: '#facc15'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Modern Scrollbar & UI Tweaks */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222f47;
+            border-radius: 9999px;
+        }
+        /* Custom Input Range Styling for Mobile Touch */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #222f47;
+            height: 8px;
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-physicsBg text-slate-100 font-sans min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Header Navbar -->
+    <header class="border-b border-physicsBorder bg-physicsCard/80 backdrop-blur-md px-4 py-3 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-accentBlue animate-pulse"></div>
+                <h1 class="text-base sm:text-lg font-bold tracking-wide text-white">Simulasi Lab GMB</h1>
+            </div>
+            <span class="text-xs bg-physicsBorder text-accentBlue px-2.5 py-1 rounded-full border border-accentBlue/20">Fisika Interaktif</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-5xl mx-auto w-full p-3 sm:p-5 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        
+        <!-- Left/Top Section: Interactive Canvas Viewport -->
+        <div class="lg:col-span-7 flex flex-col gap-3 w-full">
+            <div class="relative bg-physicsCard border border-physicsBorder rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px]">
+                
+                <!-- Canvas -->
+                <canvas id="simCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+                <!-- Legend Overlay (Mobile Friendly) -->
+                <div class="absolute top-3 left-3 bg-physicsBg/80 backdrop-blur-sm border border-physicsBorder p-2.5 rounded-xl text-xs space-y-1.5 shadow-lg">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-accentGreen inline-block"></span>
+                        <span class="text-slate-300">Kecepatan Linear (<span class="text-accentGreen font-semibold">v</span>)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-accentRed inline-block"></span>
+                        <span class="text-slate-300">Percepatan Sentripetal (<span class="text-accentRed font-semibold">a<sub>s</sub></span>)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-accentYellow inline-block"></span>
+                        <span class="text-slate-300">Jari-jari (<span class="text-accentYellow font-semibold">R</span>)</span>
+                    </div>
+                </div>
+
+                <!-- Simulation Status Indicator -->
+                <div id="statusBadge" class="absolute top-3 right-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold tracking-wider px-2.5 py-1 rounded-full uppercase">
+                    Berjalan
+                </div>
+            </div>
+
+            <!-- Playback Control Buttons -->
+            <div class="grid grid-cols-2 gap-3">
+                <button id="btnPlayPause" class="w-full py-3 px-4 bg-accentBlue hover:bg-sky-400 active:scale-95 text-physicsBg font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all flex items-center justify-center gap-2">
+                    <svg id="iconPause" class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    <svg id="iconPlay" class="w-5 h-5 fill-current hidden" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span id="labelPlayPause">Pause</span>
+                </button>
+                <button id="btnReset" class="w-full py-3 px-4 bg-physicsCard hover:bg-slate-800 active:scale-95 text-slate-200 border border-physicsBorder font-semibold rounded-xl transition-all flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5 stroke-current fill-none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right/Bottom Section: Controls & Physics Dashboard -->
+        <div class="lg:col-span-5 flex flex-col gap-4 w-full">
+            
+            <!-- Controls Card -->
+            <div class="bg-physicsCard border border-physicsBorder rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accentBlue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Parameter Interaktif
+                </h2>
+
+                <!-- Slider Jari-Jari -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-sm">
+                        <label for="sliderRadius" class="text-slate-300 font-medium">Jari-Jari (R)</label>
+                        <span class="text-accentYellow font-mono font-bold bg-physicsBg px-2 py-0.5 rounded border border-physicsBorder"><span id="valRadius">80</span> px</span>
+                    </div>
+                    <input type="range" id="sliderRadius" min="40" max="140" value="80" class="w-full">
+                </div>
+
+                <!-- Slider Kecepatan Sudut -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-sm">
+                        <label for="sliderOmega" class="text-slate-300 font-medium">Kecepatan Sudut (&omega;)</label>
+                        <span class="text-accentBlue font-mono font-bold bg-physicsBg px-2 py-0.5 rounded border border-physicsBorder"><span id="valOmega">2.0</span> rad/s</span>
+                    </div>
+                    <input type="range" id="sliderOmega" min="0" max="6" step="0.1" value="2.0" class="w-full">
+                </div>
+            </div>
+
+            <!-- Dashboard Real-time Data -->
+            <div class="bg-physicsCard border border-physicsBorder rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accentBlue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Hasil Perhitungan Real-Time
+                </h2>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <!-- Kecepatan Linear v -->
+                    <div class="bg-physicsBg/70 border border-physicsBorder p-3 rounded-xl flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400">Kecepatan Linear (v)</span>
+                        <div class="text-base sm:text-lg font-bold font-mono text-accentGreen mt-1">
+                            <span id="dispV">0.00</span> <span class="text-xs text-slate-400 font-normal">px/s</span>
+                        </div>
+                    </div>
+
+                    <!-- Percepatan Sentripetal as -->
+                    <div class="bg-physicsBg/70 border border-physicsBorder p-3 rounded-xl flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400">Percepatan Sentripetal (a<sub>s</sub>)</span>
+                        <div class="text-base sm:text-lg font-bold font-mono text-accentRed mt-1">
+                            <span id="dispAs">0.00</span> <span class="text-xs text-slate-400 font-normal">px/s²</span>
+                        </div>
+                    </div>
+
+                    <!-- Periode T -->
+                    <div class="bg-physicsBg/70 border border-physicsBorder p-3 rounded-xl flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400">Periode (T)</span>
+                        <div class="text-base sm:text-lg font-bold font-mono text-slate-100 mt-1">
+                            <span id="dispT">0.00</span> <span class="text-xs text-slate-400 font-normal">s</span>
+                        </div>
+                    </div>
+
+                    <!-- Frekuensi f -->
+                    <div class="bg-physicsBg/70 border border-physicsBorder p-3 rounded-xl flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400">Frekuensi (f)</span>
+                        <div class="text-base sm:text-lg font-bold font-mono text-slate-100 mt-1">
+                            <span id="dispF">0.00</span> <span class="text-xs text-slate-400 font-normal">Hz</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Concept Note -->
+                <div class="p-2.5 bg-sky-500/5 border border-sky-500/20 rounded-xl text-[11px] text-slate-300 leading-relaxed mt-2">
+                    <span class="font-bold text-accentBlue">Konsep GMB:</span> Kecepatan linear (<span class="text-accentGreen">v</span>) tegak lurus jari-jari. Percepatan sentripetal (<span class="text-accentRed">a<sub>s</sub></span>) selalu menuju pusat.
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-3 text-xs text-slate-500 border-t border-physicsBorder bg-physicsCard/40">
+        Simulasi Fisika Interaktif GMB &copy; HTML5 Canvas & Vanilla JS
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Setup Canvas & State
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Controls
+        const sliderRadius = document.getElementById('sliderRadius');
+        const sliderOmega = document.getElementById('sliderOmega');
+        const valRadius = document.getElementById('valRadius');
+        const valOmega = document.getElementById('valOmega');
+
+        // Dashboard Display
+        const dispV = document.getElementById('dispV');
+        const dispAs = document.getElementById('dispAs');
+        const dispT = document.getElementById('dispT');
+        const dispF = document.getElementById('dispF');
+
+        // Playback Buttons & Status
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const btnReset = document.getElementById('btnReset');
+        const iconPause = document.getElementById('iconPause');
+        const iconPlay = document.getElementById('iconPlay');
+        const labelPlayPause = document.getElementById('labelPlayPause');
+        const statusBadge = document.getElementById('statusBadge');
+
+        // Physics Variables State
+        let R = parseFloat(sliderRadius.value);
+        let omega = parseFloat(sliderOmega.value);
+        let theta = 0; // Sudut awal dalam radian
+        let isRunning = true;
+        let lastTime = 0;
+
+        // Resize Canvas Adaptively
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Arrow Drawing Helper Function
+        function drawArrow(fromX, fromY, toX, toY, color, width = 2) {
+            const headLength = 10;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = width;
+
+            // Main line
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrow Head
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Calculate Physics Values & Update UI
+        function updatePhysicsDashboard() {
+            const v = omega * R;
+            const a_s = Math.pow(omega, 2) * R;
+            
+            let T = 0;
+            let f = 0;
+
+            if (omega > 0) {
+                T = (2 * Math.PI) / omega;
+                f = omega / (2 * Math.PI);
+            }
+
+            dispV.textContent = v.toFixed(1);
+            dispAs.textContent = a_s.toFixed(1);
+            dispT.textContent = omega > 0 ? T.toFixed(2) : '∞';
+            dispF.textContent = f.toFixed(2);
+        }
+
+        // Draw Frame
+        function draw(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = (timestamp - lastTime) / 1000; // detik
+            lastTime = timestamp;
+
+            if (isRunning) {
+                // Update posisi sudut
+                theta += omega * deltaTime;
+                // Jaga sudut berada di rentang 0 - 2*PI
+                theta %= (Math.PI * 2);
+            }
+
+            // Clear Background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // 1. Draw Grid Lines Subtle Background
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
+            ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+
+            // 2. Draw Trajectory Orbit (Dashed Line)
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, R, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Calculate Object Position
+            const objX = centerX + R * Math.cos(theta);
+            const objY = centerY + R * Math.sin(theta);
+
+            // 3. Draw Radius Line (R)
+            ctx.strokeStyle = '#facc15'; // Yellow
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(objX, objY);
+            ctx.stroke();
+
+            // 4. Draw Center Planet/Poros (Bumi)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 16, 0, Math.PI * 2);
+            ctx.fillStyle = '#1d4ed8'; // Earth Blue
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#60a5fa';
+            ctx.stroke();
+
+            // Glow Effect Center
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#93c5fd';
+            ctx.fill();
+
+            // 5. Draw Velocity Vector (v) - Tangential
+            const vScale = 25; // Scale for visual representation
+            const vLength = Math.min(Math.max(omega * 15, 25), 60); // Dynamic length limit
+            const vx = -Math.sin(theta) * vLength;
+            const vy = Math.cos(theta) * vLength;
+            drawArrow(objX, objY, objX + vx, objY + vy, '#4ade80', 2.5); // Green
+
+            // 6. Draw Centripetal Acceleration Vector (as) - Towards Center
+            const asLength = Math.min(Math.max(Math.pow(omega, 1.3) * 10, 20), 65); // Dynamic scale
+            const asx = -Math.cos(theta) * asLength;
+            const asy = -Math.sin(theta) * asLength;
+            drawArrow(objX, objY, objX + asx, objY + asy, '#f87171', 2.5); // Red
+
+            // 7. Draw Satellite Object
+            ctx.beginPath();
+            ctx.arc(objX, objY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8'; // Cyan
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Request next frame
+            requestAnimationFrame(draw);
+        }
+
+        // Event Listeners for Controls
+        sliderRadius.addEventListener('input', (e) => {
+            R = parseFloat(e.target.value);
+            valRadius.textContent = R;
+            updatePhysicsDashboard();
+        });
+
+        sliderOmega.addEventListener('input', (e) => {
+            omega = parseFloat(e.target.value);
+            valOmega.textContent = omega.toFixed(1);
+            updatePhysicsDashboard();
+        });
+
+        btnPlayPause.addEventListener('click', () => {
+            isRunning = !isRunning;
+            if (isRunning) {
+                iconPause.classList.remove('hidden');
+                iconPlay.classList.add('hidden');
+                labelPlayPause.textContent = 'Pause';
+                statusBadge.textContent = 'Berjalan';
+                statusBadge.className = 'absolute top-3 right-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold tracking-wider px-2.5 py-1 rounded-full uppercase';
+            } else {
+                iconPause.classList.add('hidden');
+                iconPlay.classList.remove('hidden');
+                labelPlayPause.textContent = 'Play';
+                statusBadge.textContent = 'Jeda';
+                statusBadge.className = 'absolute top-3 right-3 bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-semibold tracking-wider px-2.5 py-1 rounded-full uppercase';
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            theta = 0;
+            sliderRadius.value = 80;
+            sliderOmega.value = 2.0;
+            R = 80;
+            omega = 2.0;
+            valRadius.textContent = '80';
+            valOmega.textContent = '2.0';
+            
+            if (!isRunning) {
+                btnPlayPause.click(); // Resume playing on reset
+            }
+
+            updatePhysicsDashboard();
+        });
+
+        // Initialize App
+        updatePhysicsDashboard();
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>
